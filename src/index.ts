@@ -11,7 +11,8 @@ import router from "./router";
 const app = express();
 
 app.use(cors({
-    credentials: true
+    credentials: true,
+    origin: process.env.APP_FRONTEND_URL
 }));
 
 app.use(compression());
