@@ -2,55 +2,63 @@ import express from "express";
 
 import { createUser, getUserByEmail } from "../db/users";
 import { random, auth } from "../helpers";
+import { ApiResponse } from "../models/apiResponse";
 
 export const login = async (req: express.Request, res: express.Response) => {
+    const response = new ApiResponse();
+
     try {
         const { email, password } = req.body;
 
         if (!email || !password) {
             return res.sendStatus(400);
-        }
+        };
 
         const user = await getUserByEmail(email).select('+authentication.salt +authentication.password');
-
         if (!user) {
-            return res.sendStatus(400);
-        }
+            response.setMessage('Nieprawidłowy e-mail lub hasło');
+            response.setSuccess(false);
+            return res.status(400).json(response).end();
+        };
 
         const expectedHash = auth(user.authentication.salt, password);
-
         if (user.authentication.password !== expectedHash) {
-            return res.sendStatus(403);
-        }
+            response.setMessage('Nieprawidłowe hasło');
+            response.setSuccess(false);
+            return res.status(403).json(response).end();
+        };
 
         const salt = random();
         user.authentication.sessionToken = auth(salt, user._id.toString());
-
         await user.save();
         
-        return res.status(200).json({
+        response.setData({
             id: user._id, 
             email: user.email, 
             sessionToken: user.authentication.sessionToken
-        }).end();
+        });
+        response.setSuccess(true);
+        return res.status(200).json(response).end();
     } catch (error) {
         console.log(error);
         return res.sendStatus(400);
-    }
-}
+    };
+};
 
 export const register = async (req: express.Request, res: express.Response) => {
+    const response = new ApiResponse();
+
     try {
         const { email, password } = req.body;
-
         if (!email || !password) {
             return res.sendStatus(400);
         }
 
         const existingUser = await getUserByEmail(email);
-
         if (existingUser) {
-            return res.sendStatus(400);
+            response.setMessage('Użytkownik o takim adresie już istnieje');
+            response.setSuccess(false);
+            return res.status(400).json(response).end();
         }
 
         const salt = random();
@@ -62,10 +70,12 @@ export const register = async (req: express.Request, res: express.Response) => {
             },
         });
 
-        return res.status(200).json({
+        response.setData({
             id: user._id,
             email: user.email
-        }).end();
+        });
+        response.setSuccess(true);
+        return res.status(200).json(response).end();
     } catch (error) {
         console.log(error);
         return res.sendStatus(400);
